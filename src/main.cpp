@@ -45,19 +45,18 @@ void loop()
 {
   // get data by subcribe MQTT MaQ
   MQTTLoop();
-  // String myTopic = TOPIC;
-  // char charBuf[myTopic.length() + 1];
-  // myTopic.toCharArray(charBuf, myTopic.length() + 1);
-  // if (MQTTSubscribe(charBuf) )
-  // {
-  //   Serial.printf("MQTTSubcribe was succeeded.\n");
-  // }
+  
+  if (MQTTSubscribe(TOPIC))
+  {
+    Serial.printf("MQTTSubcribe was succeeded.\n");
+  }
 
   // publish ok
   // if(MQTTPublish(TOPIC, "test maqiatto thui!")==true)
   // {
   //   Serial.printf("MQTTPublish was succeeded.\n");
   // }
+  
   delay(LOOP_TIMEOUT);
   // show data run in Oled screen
 

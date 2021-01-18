@@ -83,17 +83,17 @@ void MQTTBegin()
 {
   mqttClient.setServer(MQTT_BROKER, MQTT_BROKER_PORT);
   mqttClient.setCallback(dataCallback);
-  // mqttInitCompleted = true;
+  mqttInitCompleted = true;
 }
 
 void MQTTLoop()
 {
-  // if(mqttInitCompleted)
-  // {
-  if (!MQTTIsConnected())
+  if (mqttInitCompleted)
   {
-    performConnect();
+    if (!MQTTIsConnected())
+    {
+      performConnect();
+    }
+    mqttClient.loop();
   }
-  mqttClient.loop();
-  // }
 }
