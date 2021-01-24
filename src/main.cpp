@@ -4,6 +4,7 @@
 #include <SPI.h>
 #include <ESP8266WiFi.h>
 #include <ArduinoJson.h>
+#include <Scheduler.h>
 
 #define WIFI_TIMEOUT 1000
 #define LOOP_TIMEOUT 1000
@@ -20,51 +21,72 @@ const char *mqtt_password = "chandattoong99";
 const int mqtt_port = 1883;
 long unsigned int timenow = 0;
 
+const char *humidity;
+const char *temperature;
+
+int timecontrol = 0;
+int statusled = 0;
+int timeshow=0;
+
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-
 SSD1306 display(0x3c, 4, 5);
 
-
-void showdata(const char* h, const char* t)
+void show_data()
 {
-  Serial.println("Time show data: ");
-  Serial.println(millis());
-  for (int i = 128; i > -180; i--)
+  int mid = millis();
+
+  while (mid - timenow < timeshow) //1 lần subcribe dữ liệu
   {
-    display.drawString(i, 0, "Nhiet do: ");
-    display.drawString(i+100, 0, t);
-    display.display();
-    delay(10);
-    if (i == -170)
+    for (int i = 128; i > -180; i--)
     {
-      for (int j = 128; j > -170; j--)
+      display.drawString(i, 0, "Nhiet do: ");
+      display.drawString(i + 100, 0, temperature);
+      display.display();
+      delay(10);
+      if (i == -170)
       {
-        display.drawString(j, 0, "Do am: ");
-        display.drawString(j+80, 0, h);
-        display.display();
-        delay(10);
-        display.clear();
-        display.drawString(0, 32, "Team 9-IoT");
-        display.display();
+        for (int j = 128; j > -170; j--)
+        {
+          display.drawString(j, 0, "Do am: ");
+          display.drawString(j + 80, 0, humidity);
+          display.display();
+          delay(10);
+          display.clear();
+          display.drawString(0, 32, "Team 9-IoT");
+          display.display();
+        }
       }
+      display.clear();
+      display.drawString(0, 32, "Team 9-IoT");
+      display.display();
     }
-    display.clear();
-    display.drawString(0, 32, "Team 9-IoT");
-    display.display();
+    mid = millis();
   }
+  timenow = millis();
 }
 
-
-void turnled()
+class TurnLed : public Task
 {
-  Serial.println("Time show led: ");
-  Serial.println(millis());
-  digitalWrite(16,1);
-  delay(3000);
-  digitalWrite(16,0);
-}
+protected:
+  void loop()
+  {
+    if (statusled == 1 && timecontrol > 0) 
+    {
+      digitalWrite(16, 1);
+      delay(timecontrol);
+      Serial.println("off");
+      Serial.println(timecontrol);
+      digitalWrite(16, 0);
+
+      //tắt đi sau khi hết thời gian
+      statusled = 0;
+    }
+    
+  }
+
+} turn_led;
 
 // Hàm kết nối wifi
 void setup_wifi()
@@ -91,7 +113,7 @@ void callback(char *topic_subcribe, byte *payload, unsigned int length)
   Serial.print("Message arrived [");
   Serial.print(topic_subcribe);
   Serial.print("] ");
-  
+
   for (int i = 0; i < length; i++)
   {
     Serial.print((char)payload[i]);
@@ -103,24 +125,17 @@ void callback(char *topic_subcribe, byte *payload, unsigned int length)
   // Hiển thị LCD
   StaticJsonDocument<256> doc;
   deserializeJson(doc, payload, length);
-  const char* humidity = doc["humidity"];
-  const char* temperature = doc["temperature"];
-  
+  humidity = doc["humidity"];
+  temperature = doc["temperature"];
+
   // Xử lý dữ liệu để hiển thị led
+  int number = atoi(humidity);
 
-  // thay vì xử lý đa luồng, sẽ cho led sáng trước tượng chưng cho việc tưới tiêu, sau đó mới hiển thị dữ liệu
-  // turnled();
-  // show data
-  int mid = millis();
-  while (mid - timenow < 20000) //300000: 5p 1 lần subcribe dữ liệu
-  {
-    showdata(humidity, temperature);
-    mid=millis();
-  }
-  timenow = millis();
-  
-  
+  // cập nhật lại các tham số điều khiển, giả sử độ ẩm tốt là 80mm, độ lệch cho nhân 5s tượng trưng
+  timeshow = max(0,(80-number)*4000);
+  timecontrol = max(0, (80 - number)*100);
 
+  show_data();
 }
 
 void reconnect()
@@ -135,6 +150,7 @@ void reconnect()
     {
       Serial.println("\nConnected!");
       client.subscribe(topic_subcribe);
+      statusled = 1; //bật đèn led
     }
     else
     {
@@ -144,6 +160,19 @@ void reconnect()
     }
   }
 }
+
+class MQTTLoop : public Task
+{
+protected:
+  void loop()
+  {
+    if (!client.connected())
+    {
+      reconnect();
+    }
+    client.loop();
+  }
+} mqtt_loop;
 
 void setup()
 {
@@ -157,21 +186,22 @@ void setup()
   setup_wifi();
 
   // setup led
-  pinMode(16,OUTPUT);
+  pinMode(16, OUTPUT);
 
   client.setServer(mqtt_broker, mqtt_port);
   client.setCallback(callback);
   display.drawString(0, 32, "Team 9-IoT");
   display.display();
 
+  // cho led sáng tượng chưng cho việc tưới tiêu
+  Scheduler.start(&turn_led);
+
+  // Hiển thị dữ liệu len màn LCD
+  Scheduler.start(&mqtt_loop);
 }
+
 
 void loop()
 {
-
-  if (!client.connected())
-  {
-    reconnect();
-  }
-  client.loop();
+  Scheduler.begin();
 }
