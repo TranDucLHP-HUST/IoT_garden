@@ -135,7 +135,7 @@ void callback(char *topic_subcribe, byte *payload, unsigned int length)
   if (number > 80) 
   {
     timeshow = (number-80) *4000;
-    timecontrol = (number-80)*100;
+    timecontrol = 0;//(number-80)*100;
   }
   else 
   {
