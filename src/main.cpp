@@ -10,8 +10,8 @@
 #define LOOP_TIMEOUT 1000
 
 // WiFi
-const char *ssid = "22 Tan Lac";    // Enter your WiFi name
-const char *password = "244466666"; // Enter WiFi password
+const char *ssid = "Samsung galaxy s9+";    // Enter your WiFi name
+const char *password = "0123456789"; // Enter WiFi password
 
 // MQTT Broker
 const char *mqtt_broker = "www.maqiatto.com";
@@ -36,7 +36,7 @@ SSD1306 display(0x3c, 4, 5);
 void show_data()
 {
   int mid = millis();
-
+  Serial.println(timeshow);
   while (mid - timenow < timeshow) //1 lần subcribe dữ liệu
   {
     for (int i = 128; i > -180; i--)
@@ -130,11 +130,21 @@ void callback(char *topic_subcribe, byte *payload, unsigned int length)
 
   // Xử lý dữ liệu để hiển thị led
   int number = atoi(humidity);
-
+  Serial.println(number);
   // cập nhật lại các tham số điều khiển, giả sử độ ẩm tốt là 80mm, độ lệch cho nhân 5s tượng trưng
-  timeshow = max(0,(80-number)*4000);
-  timecontrol = max(0, (80 - number)*100);
+  if (number > 80) 
+  {
+    timeshow = (number-80) *4000;
+    timecontrol = (number-80)*100;
+  }
+  else 
+  {
+    timeshow = (80-number)*4000;
+    timecontrol = (80 - number)*100;
+  }
 
+  statusled = 1; //bật đèn led
+  delay(1000);
   show_data();
 }
 
@@ -150,7 +160,7 @@ void reconnect()
     {
       Serial.println("\nConnected!");
       client.subscribe(topic_subcribe);
-      statusled = 1; //bật đèn led
+      
     }
     else
     {
